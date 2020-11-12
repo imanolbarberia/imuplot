@@ -77,16 +77,24 @@ class DummyDataSource(DataSource):
         super().__init__()
 
     def run(self):
+        """
+        Inherited method from QRunnable. This method is called from a Threadpool to be run in background
+        :return: Nothing
+        """
         self.running = True
         self.signals.work_started.emit()
 
         old_data_point = [0]*9
         counter = 0
         while self.running:
-            data_point = [el*random.randint(-10, 10) for el in old_data_point]
-            self.signals.data_ready.emit(data_point)
-            old_data_point = data_point
+            # Generate new point
+            data_point = [el+random.randint(-10, 10) for el in old_data_point]
 
+            # Emit data point signal
+            self.signals.data_ready.emit(data_point)
+
+            # Prepare next iteration
+            old_data_point = data_point
             time.sleep(1)
             counter += 1
 

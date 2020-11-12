@@ -1,5 +1,7 @@
 # Backup files
 *~
 
-# Pycharm cache
+# Caches
 .idea
+__pycache__
+
