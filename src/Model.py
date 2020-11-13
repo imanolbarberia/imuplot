@@ -94,7 +94,7 @@ class Model(QtCore.QObject):
 
         :return: True if the thread was running, False otherwise
         """
-        if self.data_src is None:
+        if self._data_src is None:
             """
             If no data source defined, none to stop
             """

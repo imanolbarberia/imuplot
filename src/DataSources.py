@@ -95,7 +95,7 @@ class DummyDataSource(DataSource):
 
             # Prepare next iteration
             old_data_point = data_point
-            time.sleep(1)
+            time.sleep(0.1)
             counter += 1
 
         self.signals.work_stopped.emit()
