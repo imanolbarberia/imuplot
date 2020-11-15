@@ -7,6 +7,7 @@ a serial communication, or from a file, or...) and notify that data via a PyQt5 
 from PyQt5 import QtCore
 import time
 import random
+import csv
 
 
 class DataSourceSignals(QtCore.QObject):
@@ -97,5 +98,44 @@ class DummyDataSource(DataSource):
             old_data_point = data_point
             time.sleep(0.1)
             counter += 1
+
+        self.signals.work_stopped.emit()
+
+
+class FileDataSource(DataSource):
+    """
+    Dummy data source that produces random data, just made for testing
+    """
+
+    def __init__(self):
+        """
+        Class constructor
+        """
+        super().__init__()
+
+    def run(self):
+        """
+        Inherited method from QRunnable. This method is called from a Threadpool to be run in background
+        :return: Nothing
+        """
+        self.running = True
+        self.signals.work_started.emit()
+
+        # line_count = sum(1 for line in open('test.csv'))
+        # print("Line count: {}".format(line_count))
+
+        with open('test.csv') as csv_file:
+            csv_reader = csv.reader(csv_file, delimiter=',')
+            # skip line 0, which is column headers
+            next(csv_reader)
+
+            # read rows
+            while self.running:
+                try:
+                    row = next(csv_reader)
+                    self.signals.data_ready.emit([int(x) for x in row[1:]])
+                    time.sleep(0.005)
+                except StopIteration:
+                    self.running = False
 
         self.signals.work_stopped.emit()
