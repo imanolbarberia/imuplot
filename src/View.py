@@ -2,6 +2,7 @@ from PyQt5 import uic, QtWidgets
 from Model import Model
 from DataSources import DummyDataSource
 import pyqtgraph as pg
+import math
 
 
 class View(QtWidgets.QMainWindow):
@@ -18,9 +19,17 @@ class View(QtWidgets.QMainWindow):
         self.ui = uic.loadUi("ui/wndmain.ui", self)
 
         # Load plot
-        self._canvas = pg.PlotWidget()
+        self._canvas = pg.GraphicsLayoutWidget()
         self.ui.layPlots.addWidget(self._canvas)
-        self._plot_ref = self._canvas.plot([0]*20, pen=(255, 0, 0), name="AccX")
+        self._plot_accx = self._canvas.addPlot(title="AccX")
+        self._plot_accx_line = self._plot_accx.plot([0]*20, pen=(255, 0, 0), name="AccX")
+        self._plot_accy = self._canvas.addPlot(title="AccY")
+        self._plot_accy_line = self._plot_accy.plot([0]*20, pen=(0, 255, 0), name="AccY")
+        self._canvas.nextRow()
+        self._plot_accz = self._canvas.addPlot(title="AccZ")
+        self._plot_accz_line = self._plot_accz.plot([0]*20, pen=(0, 0, 255), name="AccZ")
+        self._plot_acc = self._canvas.addPlot(title="|Acc|")
+        self._plot_acc_line = self._plot_acc.plot([0]*20, pen=(255, 255, 0), name="|Acc|")
 
         # Set model
         self._model = Model()
@@ -75,7 +84,13 @@ class View(QtWidgets.QMainWindow):
         """
         data_set = self._model.get_data()
 
-        y_data = [el[0] for el in data_set]
+        accx_data = [el[0] for el in data_set]
+        accy_data = [el[1] for el in data_set]
+        accz_data = [el[2] for el in data_set]
+        acc_data = [math.sqrt(el[0]**2+el[1]**2+el[2]**2) for el in data_set]
 
         # plot the current data
-        self._plot_ref.setData(y_data)
+        self._plot_accx_line.setData(accx_data)
+        self._plot_accy_line.setData(accy_data)
+        self._plot_accz_line.setData(accz_data)
+        self._plot_acc_line.setData(acc_data)
