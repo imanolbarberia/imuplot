@@ -1,21 +1,7 @@
-from PyQt5 import QtCore, uic, QtWidgets
-import matplotlib
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-from matplotlib.figure import Figure
+from PyQt5 import uic, QtWidgets
 from Model import Model
 from DataSources import DummyDataSource
-import random
-
-matplotlib.use("Qt5Agg")
-
-
-class MplCanvas(FigureCanvasQTAgg):
-    def __init__(self, parent=None, width=5, height=4, dpi=100):
-        fig = Figure(figsize=(width, height), dpi=dpi)
-
-        self.axes = fig.add_subplot(111)
-
-        super().__init__(fig)
+import pyqtgraph as pg
 
 
 class View(QtWidgets.QMainWindow):
@@ -31,13 +17,10 @@ class View(QtWidgets.QMainWindow):
         # Load UI layout
         self.ui = uic.loadUi("ui/wndmain.ui", self)
 
-        # Add plot canvas
-        self._canvas = MplCanvas(self)
+        # Load plot
+        self._canvas = pg.PlotWidget()
         self.ui.layPlots.addWidget(self._canvas)
-        self._plot_x = None
-        self._xdata = list(range(20))
-        self._ydata = [0]*20
-        self.on_data_received()
+        self._plot_ref = self._canvas.plot([0]*20, pen=(255, 0, 0), name="AccX")
 
         # Set model
         self._model = Model()
@@ -90,34 +73,9 @@ class View(QtWidgets.QMainWindow):
         """
         Update and redraw plot with new data
         """
-        if self._plot_x is None:
-            """
-            Initial draw
-            """
-            plot_refs = self._canvas.axes.plot(self._xdata, self._ydata, 'r')
-            self._plot_x = plot_refs[0]
-            self._canvas.axes.set_ylim(-200, 200)
-            self._canvas.axes.set_xticks(list(range(20)))
-            self._canvas.axes.set_xticklabels([0]*20, rotation=45)
-            self._canvas.axes.grid()
-        else:
-            """
-            Process new data
-            """
-            data_set = self._model.get_data()
-            datalen = len(data_set)
+        data_set = self._model.get_data()
 
-            if len(data_set) < 20:
-                self._ydata = [0]*(20-datalen)+[el[0] for el in data_set]
-                self._canvas.axes.set_xticklabels([0]*(20-datalen)+list(range(datalen)))
-            else:
-                self._ydata = [el[0] for el in data_set[datalen-20:]]
-                self._canvas.axes.set_xticklabels(list(range(datalen-20, datalen)))
+        y_data = [el[0] for el in data_set]
 
-            self._plot_x.set_ydata(self._ydata)
-
-        self._canvas.draw()
-
-
-
-
+        # plot the current data
+        self._plot_ref.setData(y_data)
