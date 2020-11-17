@@ -1,5 +1,6 @@
 from PyQt5 import QtCore
 from DataSources import DataSource
+import DataSources
 
 
 class Model(QtCore.QObject):
@@ -33,6 +34,14 @@ class Model(QtCore.QObject):
             ret = True
 
         return ret
+
+    def add_dataset(self, d):
+        """
+        Add complete dataset
+        :param d:
+        """
+        self._data_list += d
+        self.data_received.emit(d)
 
     def get_data(self):
         """
@@ -81,7 +90,10 @@ class Model(QtCore.QObject):
             # Connect signals and start running
             self._data_src.signals.work_started.connect(self.data_src_started)
             self._data_src.signals.work_stopped.connect(self.data_src_stopped)
-            self._data_src.signals.data_ready.connect(self.add_data_point)
+            if self._data_src.get_mode() == DataSources.MODE_LIVE:
+                self._data_src.signals.data_ready.connect(self.add_data_point)
+            else:
+                self._data_src.signals.data_ready.connect(self.add_dataset)
             self._thpool.start(self._data_src)
 
             ret = True
@@ -112,7 +124,10 @@ class Model(QtCore.QObject):
             """
             # Disconnect signals
             self._data_src.signals.work_started.disconnect(self.data_src_started)
-            self._data_src.signals.data_ready.disconnect(self.add_data_point)
+            if self._data_src.get_mode() == DataSources.MODE_LIVE:
+                self._data_src.signals.data_ready.disconnect(self.add_data_point)
+            else:
+                self._data_src.signals.data_ready.disconnect(self.add_dataset)
             self._data_src.stop()
 
     @QtCore.pyqtSlot()
