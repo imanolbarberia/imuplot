@@ -1,6 +1,6 @@
 from PyQt5 import uic, QtWidgets
 from Model import Model
-from DataSources import DummyDataSource, FileDataSource
+from DataSources import DummyDataSource, FileDataSource, SerialDataSource
 import DataSources
 import pyqtgraph as pg
 import math
@@ -45,7 +45,7 @@ class View(QtWidgets.QMainWindow):
 
         # Set model
         self._model = Model()
-        self._model.set_data_src(FileDataSource(m=DataSources.MODE_ONE_SHOT))
+        self._model.set_data_src(SerialDataSource())
         self._model.data_received.connect(self.on_data_received)
 
         # Connect widget signals

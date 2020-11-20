@@ -8,6 +8,7 @@ from PyQt5 import QtCore
 import time
 import random
 import csv
+import serial
 
 # DataSource data notification modes
 MODE_LIVE = 1
@@ -163,4 +164,50 @@ class FileDataSource(DataSource):
             else:
                 pass
 
+        self._work_stopped()
+
+
+class SerialDataSource(DataSource):
+    """
+    Serial data source that produces data processing what's coming from the serial
+    """
+
+    def __init__(self, m=MODE_LIVE):
+        """
+        Class constructor
+        """
+        super().__init__(m)
+        self._ser = None
+
+    def run(self):
+        """
+        Inherited method from QRunnable. This method is called from a Threadpool to be run in background
+        :return: Nothing
+        """
+        self._work_started()
+        self._ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=0.5)
+
+        while self.is_running():
+            # Read data line
+            dataline = self._ser.readline().decode()
+
+            try:
+                """
+                Try and see if there is valid data
+                """
+                datapoint = [int(el) for el in dataline.split(",")]
+
+                if len(datapoint) == 10:
+                    """
+                    If the data is valid, emit the ready signal
+                    """
+                    self.signals.data_ready.emit(datapoint[1:])
+
+            except ValueError:
+                """
+                If data is not valid, just ignore it
+                """
+                pass
+
+        self._ser.close()
         self._work_stopped()
