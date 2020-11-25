@@ -40,6 +40,14 @@ class DataSource(QtCore.QRunnable):
         self.setAutoDelete(False)
         self._running = False
         self._mode = m
+        self._name = "datasource"
+
+    def get_name(self):
+        """
+        Return datasource name
+        :return:
+        """
+        return self._name
 
     def get_mode(self):
         """
@@ -99,6 +107,7 @@ class DummyDataSource(DataSource):
         Class constructor
         """
         super().__init__(m)
+        self._name = "dummy"
 
     def run(self):
         """
@@ -129,11 +138,17 @@ class FileDataSource(DataSource):
     Dummy data source that produces random data, just made for testing
     """
 
-    def __init__(self, m=MODE_LIVE):
+    def __init__(self, fname, dt=0.1, m=MODE_LIVE):
         """
         Class constructor
         """
         super().__init__(m)
+        self._name = None
+        self._file = open(fname, "r")
+        self._dt = dt
+
+        # If opening the file failed, next line won't be executed, leaving the name as None
+        self._name = fname
 
     def run(self):
         """
@@ -142,28 +157,25 @@ class FileDataSource(DataSource):
         """
         self._work_started()
 
-        # line_count = sum(1 for line in open('test.csv'))
-        # print("Line count: {}".format(line_count))
+        csv_reader = csv.reader(self._file, delimiter=',')
+        # skip line 0, which is column headers
+        next(csv_reader)
 
-        with open('test.csv') as csv_file:
-            csv_reader = csv.reader(csv_file, delimiter=',')
-            # skip line 0, which is column headers
-            next(csv_reader)
+        if self.get_mode() == MODE_LIVE:
+            # read rows
+            while self.is_running():
+                try:
+                    row = next(csv_reader)
+                    self.signals.data_ready.emit([int(x) for x in row[1:]])
+                    time.sleep(self._dt)
+                except StopIteration:
+                    self.stop()
+        elif self.get_mode() == MODE_ONE_SHOT:
+            self.signals.data_ready.emit([list(map(lambda x: int(x), el[1:])) for el in list(csv_reader)])
+        else:
+            pass
 
-            if self.get_mode() == MODE_LIVE:
-                # read rows
-                while self.is_running():
-                    try:
-                        row = next(csv_reader)
-                        self.signals.data_ready.emit([int(x) for x in row[1:]])
-                        time.sleep(0.005)
-                    except StopIteration:
-                        self.stop()
-            elif self.get_mode() == MODE_ONE_SHOT:
-                self.signals.data_ready.emit([list(map(lambda x: int(x), el[1:])) for el in list(csv_reader)])
-            else:
-                pass
-
+        self._file.close()
         self._work_stopped()
 
 
@@ -172,12 +184,13 @@ class SerialDataSource(DataSource):
     Serial data source that produces data processing what's coming from the serial
     """
 
-    def __init__(self, m=MODE_LIVE):
+    def __init__(self, ser: serial.Serial):
         """
         Class constructor
         """
-        super().__init__(m)
-        self._ser = None
+        super().__init__(MODE_LIVE)
+        self._ser = ser
+        self._name = "{}@{}".format(ser.name, ser.baudrate)
 
     def run(self):
         """
@@ -185,7 +198,7 @@ class SerialDataSource(DataSource):
         :return: Nothing
         """
         self._work_started()
-        self._ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=0.5)
+        # self._ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=0.5)
 
         while self.is_running():
             # Read data line

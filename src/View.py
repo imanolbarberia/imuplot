@@ -8,6 +8,25 @@ import math
 import serial.tools.list_ports
 
 
+def enable_children(w, st):
+    """
+    Recursively enable or disable widgets in a layout and its children
+    :param w: Widget (or layout) to check children for
+    :param st: Status to be set (for enabled property)
+    """
+    if issubclass(type(w), QtWidgets.QLayout):
+        # If the object is a layout object
+        c = w.count()
+        for i in range(c):
+            enable_children(w.itemAt(i), st)
+    else:
+        # If the object is not a layout object
+        wi = w.widget()
+
+        if wi is not None:
+            wi.setEnabled(st)
+
+
 class SensorAxisPlot:
     def __init__(self, cnv: pg.GraphicsLayoutWidget, name, pen):
         self.plot = cnv.addPlot(title=name)
@@ -30,20 +49,14 @@ class SessionDialog(QtWidgets.QDialog):
         # Load layout
         self.ui = uic.loadUi("ui/wndsession.ui", self)
         self.ui.optFile.toggled.connect(self.on_source_selected)
-        self.ui.optSerial.toggled.connect(self.on_source_selected)
+        self.ui.optOneShot.toggled.connect(self.on_mode_selected)
         self.ui.btnRefresh.clicked.connect(self.refresh_serial_list)
         self.ui.btnFileSelect.clicked.connect(self.select_file)
 
         self.refresh_serial_list()
 
         # Default enable
-        self.ui.txtFileSelect.setEnabled(True)
-        self.ui.btnFileSelect.setEnabled(True)
-        self.ui.lblUpdateMode.setEnabled(True)
-        self.ui.optLive.setEnabled(True)
-        self.ui.optOneShot.setEnabled(True)
-        self.ui.cmbSerial.setEnabled(False)
-        self.ui.btnRefresh.setEnabled(False)
+        self.on_source_selected()
 
     def select_file(self):
         opts = QFileDialog.Options()
@@ -70,35 +83,36 @@ class SessionDialog(QtWidgets.QDialog):
             name = self.ui.txtFileSelect.text()
             if self.ui.optLive.isChecked():
                 mode = DataSources.MODE_LIVE
+                dt = self.ui.txtRate.value() / 1000
             else:
                 mode = DataSources.MODE_ONE_SHOT
+                dt = 0.1  # not needed, but whatever
+
+            config = [mode, dt]
         else:
             src = 1
             name = self.ui.cmbSerial.currentText()
-            mode = DataSources.MODE_LIVE
+            br = int(self.ui.txtBaudRate.text())
+            config = [br]
 
-        return src, name, mode
+        return src, name, config
+
+    def on_mode_selected(self):
+        if self.ui.optOneShot.isChecked():
+            self.ui.lblRate.setEnabled(False)
+            self.ui.txtRate.setEnabled(False)
+        else:
+            self.ui.lblRate.setEnabled(True)
+            self.ui.txtRate.setEnabled(True)
 
     def on_source_selected(self):
-        opt = self.sender()
-        if opt.isChecked():
-            if opt == self.ui.optFile:
-                self.ui.txtFileSelect.setEnabled(True)
-                self.ui.btnFileSelect.setEnabled(True)
-                self.ui.lblUpdateMode.setEnabled(True)
-                self.ui.optLive.setEnabled(True)
-                self.ui.optOneShot.setEnabled(True)
-                self.ui.cmbSerial.setEnabled(False)
-                self.ui.btnRefresh.setEnabled(False)
-
-            elif opt == self.ui.optSerial:
-                self.ui.txtFileSelect.setEnabled(False)
-                self.ui.btnFileSelect.setEnabled(False)
-                self.ui.lblUpdateMode.setEnabled(False)
-                self.ui.optLive.setEnabled(False)
-                self.ui.optOneShot.setEnabled(False)
-                self.ui.cmbSerial.setEnabled(True)
-                self.ui.btnRefresh.setEnabled(True)
+        if self.ui.optFile.isChecked():
+            enable_children(self.ui.layFile, True)
+            enable_children(self.ui.laySerial, False)
+            self.on_mode_selected()
+        else:
+            enable_children(self.ui.layFile, False)
+            enable_children(self.ui.laySerial, True)
 
 
 class View(QtWidgets.QMainWindow):
@@ -143,7 +157,7 @@ class View(QtWidgets.QMainWindow):
 
         if session_start == 1:
             # If OK button pressed
-            ds, nm, md = self._session_dialog.get_config()
+            ds, nm, cfg = self._session_dialog.get_config()
 
             if ds == 0:
                 # File data source selected
@@ -154,26 +168,22 @@ class View(QtWidgets.QMainWindow):
                     msg.setIcon(QMessageBox.Critical)
                     msg.exec()
                 else:
-                    self._model.set_data_src(FileDataSource(m=md))
+                    self._model.set_data_src(FileDataSource(nm, m=cfg[0], dt=cfg[1]))
                     self._model.start_listening()
 
             else:
                 # Serial data source selected
-                is_available = True
                 try:
-                    ser = serial.Serial(nm, 115200)
-                    ser.close()
+                    ser = serial.Serial(nm, cfg[0], timeout=0.5)
+
+                    self._model.set_data_src(SerialDataSource(ser))
+                    self._model.start_listening()
                 except serial.SerialException:
                     msg = QMessageBox(self)
                     msg.setWindowTitle("Serial port not available")
                     msg.setText("Port '{}' is already in use.".format(nm))
                     msg.setIcon(QMessageBox.Critical)
                     msg.exec()
-                    is_available = False
-
-                if is_available:
-                    self._model.set_data_src(SerialDataSource())
-                    self._model.start_listening()
         else:
             # If Cancel button pressed
             pass
@@ -190,7 +200,7 @@ class View(QtWidgets.QMainWindow):
             self.ui.mnu_session_new.setEnabled(False)
             self.ui.mnu_session_close.setEnabled(True)
             self.ui.tabPlots.setEnabled(True)
-            self._lblStatus.setText("ToDo: add session description")
+            self._lblStatus.setText("Session: {}".format(self._model.get_data_src().get_name()))
 
     def on_mnu_session_close(self):
         if self._model.get_data_src() is not None:
