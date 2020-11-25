@@ -43,6 +43,13 @@ class Model(QtCore.QObject):
         self._data_list += d
         self.data_received.emit(d)
 
+    def clear_dataset(self):
+        """
+        Clear whole data set
+        """
+        self._data_list = []
+        self.data_received.emit([])
+
     def get_data(self):
         """
         Return data set

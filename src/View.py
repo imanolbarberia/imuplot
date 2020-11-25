@@ -214,6 +214,7 @@ class View(QtWidgets.QMainWindow):
             else:
                 pass
 
+            self._model.clear_dataset()
             self._model.set_data_src(None)
 
         else:
@@ -265,6 +266,9 @@ class View(QtWidgets.QMainWindow):
         Update and redraw plot with new data
         """
         data_set = self._model.get_data()
+
+        if len(data_set) == 0:
+            data_set = [[0]*9 for i in range(20)]
 
         accx_data = [el[0] for el in data_set]
         accy_data = [el[1] for el in data_set]
